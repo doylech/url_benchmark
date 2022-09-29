@@ -1,0 +1,241 @@
+defaults:
+
+  # Train Script
+  logdir: /dev/null
+  seed: 0
+  task: dmc_walker_walk
+  num_envs: 1
+  steps: 1e8
+  eval_every: 1e5
+  eval_eps: 1
+  action_repeat: 1
+  time_limit: 0
+  prefill: 10000
+  image_size: [64, 64]
+  grayscale: False
+  replay_size: 2e6
+  dataset: {batch: 50, length: 50, oversample_ends: True, prioritize_temporal: False}
+  precision: 16
+  jit: True
+  unified_replay_buffer: False
+  ckpt_load_path: /dev/null
+  ckpt_each_eval: 0
+  replay_buffer_source: /dev/null
+  freeze_models: False   # Freeze models after pretraining
+#  loss_clip_magnitude: 0
+  control_timestep: None
+  physics_timestep: None
+  intr_rew_train_every: 1
+  expl_policy_train_every: 1
+  save_freq: 0 # Number of steps to save out subepisodes. 0 means only save at end of episode. Make this an integer fraction of eval_every
+  reset_state_freq: 0 # Number of steps to reset latent state. 0 means only reset at end of episode. Make this an integer fraction of eval_every (maybe not necessary).
+  reset_position_freq: 0 # Number of steps to reset position of objects. 0 means only reset at end of episode. Make this an integer fraction of eval_every (maybe not necessary).
+
+  # Configs for adaptation stage
+  env_sequence: env_sequence_antplay.yaml
+  reset_on_respawn: [ None ]  #{reward_head, actor_critic} Note:  [None] of [] because elements doesn't allow empty list
+  min_replay_episode_length: 50
+  adapt: False
+  adapteval: False
+  adapt_task: 'dmc_walker_walk'
+  adapt_at: 0
+  respawn_agent: False
+  adaptdir: /dev/null
+  adaptevaldir: /dev/null
+  offline_adaptdir: ''
+  offline_adaptevaldir: ''
+  aesthetic: 'default'   # outdoor_natural
+  egocentric_camera: True
+  delete_old_trajectories: True
+  clear_buffer_at_step: -1   # If positive, will delete all contents of the buffer, at this step
+  dynamic_ddmc: True    # For Distracting DMC
+  num_videos_ddmc: 1
+  randomize_background_ddmc: 0
+  shuffle_background_ddmc: 0
+  do_color_change_ddmc: 0
+  ground_plane_alpha_ddmc: 1.0
+  background_dataset_videos_ddmc: ['bmx-bumps']
+  continuous_video_frames_ddmc: True
+  pg_num_levels: 0      # For procgen
+  pg_start_level: 0
+  pg_distribution_mode: 'easy'
+  pg_use_sequential_levels: False
+
+  # Agent
+  log_every: 1e4
+  train_every: 5
+  train_steps: 1
+  pretrain: 0
+  pretrain_adapt: 0   # Number of pretrain steps
+  pretrain_expl: 0
+  inner_wm_train: 0   # Iterations of wm_train before full model train step
+  inner_explb_train: 0
+  inner_taskb_train: 0
+  clip_rewards: identity
+  expl_noise: 0.0
+  expl_behavior: greedy
+  expl_until: 0
+  eval_noise: 0.0
+  eval_state_mean: False
+
+  # World Model
+  pred_discount: True
+  grad_heads: [image, discount] #gendreamer: reward removed
+  rssm: {hidden: 400, deter: 400, stoch: 32, discrete: 32, act: elu, std_act: sigmoid2, min_std: 0.1}
+  encoder: {depth: 48, act: elu, kernels: [4, 4, 4, 4], keys: [image]}
+  decoder: {depth: 48, act: elu, kernels: [5, 5, 6, 6]}
+  reward_head: {layers: 4, units: 400, act: elu, dist: mse}
+  discount_head: {layers: 4, units: 400, act: elu, dist: binary}
+  loss_scales: {kl: 1.0, reward: 1.0, discount: 1.0}
+  kl: {free: 0.0, forward: False, balance: 0.8, free_avg: True}
+  model_opt: {opt: adam, lr: 3e-4, eps: 1e-5, clip: 100, wd: 1e-6}
+#  wm_steps: 1 # I think this can be deleted?
+
+  # Actor Critic
+  actor: {layers: 4, units: 400, act: elu, dist: trunc_normal, min_std: 0.1}
+  critic: {layers: 4, units: 400, act: elu, dist: mse}
+  actor_opt: {opt: adam, lr: 1e-4, eps: 1e-5, clip: 100, wd: 1e-6}
+  critic_opt: {opt: adam, lr: 1e-4, eps: 1e-5, clip: 100, wd: 1e-6}
+  discount: 0.99
+  discount_lambda: 0.95
+  imag_horizon: 15
+  actor_grad: both
+  actor_grad_mix: '0.1'
+  actor_ent: '1e-4'
+  slow_target: True
+  slow_target_update: 100
+  slow_target_fraction: 1
+
+  # Exploration
+  expl_extr_scale: 0.0
+  expl_intr_scale: 1.0
+  expl_opt: {opt: adam, lr: 3e-4, eps: 1e-5, clip: 100, wd: 1e-6}
+  expl_head: {layers: 4, units: 400, act: elu, dist: mse}
+  disag_target: stoch
+  disag_log: True
+  disag_models: 10
+  disag_offset: 1
+  disag_action_cond: True
+  expl_model_loss: kl
+  
+  rnd_recon_target_head: {depth: 3, act: elu, kernels: [4, 4, 4, 4], keys: [image], outputsize: 512}
+  rnd_recon_predictor_head: {depth: 5, act: elu, kernels: [4, 4, 4, 4], keys: [image], outputsize: 512}
+#  rnd_recon_target_head: {depth: 2, act: elu, kernels: [4, 4, 4, 4], keys: [image], outputsize: 300}
+#  rnd_recon_predictor_head: {depth: 4, act: elu, kernels: [4, 4, 4, 4], keys: [image], outputsize: 300}
+#  rnd_recon_target_head: { depth: 2, act: elu, kernels: [ 4, 4, 4, 4 ], keys: [ image ], outputsize: 200 }
+#  rnd_recon_predictor_head: { depth: 3, act: elu, kernels: [ 4, 4, 4, 4 ], keys: [ image ], outputsize: 200 }
+#  rnd_recon_target_head: { depth: 2, act: elu, kernels: [ 4, 4, 4, 4 ], keys: [ image ], outputsize: 100 }
+#  rnd_recon_predictor_head: { depth: 3, act: elu, kernels: [ 4, 4, 4, 4 ], keys: [ image ], outputsize: 100 }
+  rnd_feat_target_head: { layers: 4, units: 400, act: elu, dist: mse }
+  rnd_feat_predictor_head: { layers: 6, units: 400, act: elu, dist: mse }
+  freeze_rnd_pred: False
+  rnd_pred_train_every: 10
+
+atari:
+
+  task: atari_pong
+  time_limit: 108000  # 30 minutes of game play.
+  action_repeat: 4
+  steps: 2e8
+  eval_every: 1e5
+  log_every: 1e5
+  prefill: 200000
+  grayscale: True
+  train_every: 16
+  clip_rewards: tanh
+  rssm: {hidden: 600, deter: 600, stoch: 32, discrete: 32}
+  actor.dist: onehot
+  model_opt.lr: 2e-4
+  actor_opt.lr: 4e-5
+  critic_opt.lr: 1e-4
+  actor_ent: 1e-3
+  discount: 0.999
+  actor_grad: reinforce
+  actor_grad_mix: 0
+  loss_scales.kl: 0.1
+  loss_scales.discount: 5.0
+  .*\.wd$: 1e-6
+
+dmc:
+
+  task: dmc_walker_walk
+  time_limit: 1000 # In steps
+  action_repeat: 2
+  eval_every: 1e4
+  log_every: 1e4
+  prefill: 5000
+  train_every: 5
+  pretrain: 100
+  pred_discount: False
+  grad_heads: [image] #gendreamer: reward removed
+  rssm: {hidden: 200, deter: 200, stoch: 32}
+  model_opt.lr: 3e-4
+  actor_opt.lr: 8e-5
+  critic_opt.lr: 8e-5
+  actor_ent: 1e-4
+  discount: 0.99
+  actor_grad: dynamics
+  kl.free: 1.0
+  dataset.oversample_ends: False
+
+  control_timestep: 0.03
+  physics_timestep: 0.005
+
+adapt:
+
+  respawn_agent: True
+  adapt: True
+  adapt_at: 1e6
+  adapteval: True
+
+debug:
+
+  jit: False
+  time_limit: 100
+  eval_every: 100
+  log_every: 100
+  prefill: 100
+  pretrain: 1 # Changed pretrain to 0
+  train_steps: 1
+  dataset.batch: 10
+  dataset.length: 10
+
+
+procgen:
+
+    task: procgen_coinrun
+    time_limit: 108000  # 30 minutes of game play.
+    action_repeat: 4
+    steps: 2e8
+    eval_every: 1e5
+    log_every: 1e5
+    prefill: 50000
+    eval_noise: 0.001
+    grayscale: False
+    train_every: 16
+    clip_rewards: tanh
+    rssm: { hidden: 600, deter: 600, stoch: 32, discrete: 32 }
+    actor.dist: onehot
+    model_opt.lr: 2e-4
+    actor_opt.lr: 4e-5
+    critic_opt.lr: 1e-4
+    actor_ent: 1e-3
+    discount: 0.999
+    actor_grad: reinforce
+    actor_grad_mix: 0
+    loss_scales.kl: 0.1
+    loss_scales.discount: 5.0
+    .*\.wd$: 1e-6
+
+    # Procgen-specific. See options here: https://github.com/openai/procgen
+      # Envs: 'bigfish', 'bossfight', 'caveflyer', 'chaser', 'climber', 'coinrun', dodgeball', 'fruitbot',
+      #       'heist', 'jumper', 'leaper', 'maze', 'miner', 'ninja', 'plunder', 'starpilot'
+    pg_num_levels: 0
+    pg_start_level: 0
+    pg_distribution_mode: 'easy'   # ["easy", "hard", "exploration", "memory", "extreme"]
+    pg_use_sequential_levels: False
+
+    ## These appear to have been removed as config options?
+    # actor_entropy_sched: 'linear(3e-3,3e-4,2.5e6)'
+    # imag_gradient: 'both'
+    # imag_gradient_mix_sched: 'linear(0.1,0,2.5e6)'
