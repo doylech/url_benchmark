@@ -7,6 +7,7 @@ from dm_control import manipulation, suite
 from dm_control.suite.wrappers import action_scale, pixels
 from dm_env import StepType, specs
 
+import common
 import custom_dmc_tasks as cdmc
 
 
@@ -98,7 +99,14 @@ class ActionRepeatWrapper(dm_env.Environment):
         reward = 0.0
         discount = 1.0
         for i in range(self._num_repeats):
-            time_step = self._env.step(action)
+            obs, reward, done, info = self._env.step(action)
+
+            time_step = ExtendedTimeStep(step_type=StepType.MID if not done else StepType.LAST,
+                                         reward=reward,
+                                         discount=discount,
+                                         observation={'observations': obs},
+                                         action=action)
+
             reward += (time_step.reward or 0.0) * discount
             discount *= time_step.discount
             if time_step.last():
@@ -178,19 +186,28 @@ class FrameStackWrapper(dm_env.Environment):
 class ActionDTypeWrapper(dm_env.Environment):
     def __init__(self, env, dtype):
         self._env = env
-        wrapped_action_spec = env.action_spec()
+        # wrapped_action_spec = env.action_spec()
+        # self._action_spec = specs.BoundedArray(wrapped_action_spec.shape,
+        #                                        dtype,
+        #                                        wrapped_action_spec.minimum,
+        #                                        wrapped_action_spec.maximum,
+        #                                        'action')
+
+        wrapped_action_spec = env.action_space
         self._action_spec = specs.BoundedArray(wrapped_action_spec.shape,
                                                dtype,
-                                               wrapped_action_spec.minimum,
-                                               wrapped_action_spec.maximum,
+                                               wrapped_action_spec.low,
+                                               wrapped_action_spec.high,
                                                'action')
 
     def step(self, action):
-        action = action.astype(self._env.action_spec().dtype)
+        # action = action.astype(self._env.action_spec().dtype)
+        action = action.astype(np.float32)
         return self._env.step(action)
 
     def observation_spec(self):
-        return self._env.observation_spec()
+        # return self._env.observation_spec()
+        return self._env.observation_space
 
     def action_spec(self):
         return self._action_spec
@@ -206,7 +223,11 @@ class ObservationDTypeWrapper(dm_env.Environment):
     def __init__(self, env, dtype):
         self._env = env
         self._dtype = dtype
-        wrapped_obs_spec = env.observation_spec()['observations']
+        # wrapped_obs_spec = env.observation_spec()['observations']
+        # self._obs_spec = specs.Array(wrapped_obs_spec.shape, dtype,
+        #                              'observation')
+
+        wrapped_obs_spec = env.observation_space
         self._obs_spec = specs.Array(wrapped_obs_spec.shape, dtype,
                                      'observation')
 
@@ -215,8 +236,18 @@ class ObservationDTypeWrapper(dm_env.Environment):
         return time_step._replace(observation=obs)
 
     def reset(self):
-        time_step = self._env.reset()
-        return self._transform_observation(time_step)
+        # time_step = self._env.reset()
+        # return self._transform_observation(time_step)
+
+        obs = self._env.reset()
+
+        time_step = ExtendedTimeStep(StepType.FIRST,
+                                     reward=0,
+                                     discount=1,
+                                     observation=obs,
+                                     action=None)
+
+        return time_step
 
     def step(self, action):
         time_step = self._env.step(action)
@@ -274,21 +305,29 @@ def _make_jaco(obs_type, domain, task, frame_stack, action_repeat, seed):
 
 def _make_dmc(obs_type, domain, task, frame_stack, action_repeat, seed):
     visualize_reward = False
-    if (domain, task) in suite.ALL_TASKS:
-        env = suite.load(domain,
-                         task,
-                         task_kwargs=dict(random=seed),
-                         environment_kwargs=dict(flat_observation=True),
-                         visualize_reward=visualize_reward)
-    else:
-        env = cdmc.make(domain,
-                        task,
-                        task_kwargs=dict(random=seed),
-                        environment_kwargs=dict(flat_observation=True),
-                        visualize_reward=visualize_reward)
+
+    config = ['--configs', 'defaults', 'dmc', '--seed', '1']
+    env_name = 'admc_sphero_multiagent_dense_goal'
+    env = common.Playground(env_name, config)
+
+    # if (domain, task) in suite.ALL_TASKS:
+    #     env = suite.load(domain,
+    #                      task,
+    #                      task_kwargs=dict(random=seed),
+    #                      environment_kwargs=dict(flat_observation=True),
+    #                      visualize_reward=visualize_reward)
+    # else:
+    #     env = cdmc.make(domain,
+    #                     task,
+    #                     task_kwargs=dict(random=seed),
+    #                     environment_kwargs=dict(flat_observation=True),
+    #                     visualize_reward=visualize_reward)
 
     env = ActionDTypeWrapper(env, np.float32)
     env = ActionRepeatWrapper(env, action_repeat)
+
+    env = ObservationDTypeWrapper(env, np.uint8)  # add to get observation spec into right spec.Array format?
+
     if obs_type == 'pixels':
         # zoom in camera for quadruped
         camera_id = dict(quadruped=2).get(domain, 0)

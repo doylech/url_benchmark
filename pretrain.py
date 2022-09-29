@@ -193,10 +193,10 @@ class Workspace:
                 episode_reward = 0
 
             # try to evaluate
-            if eval_every_step(self.global_step):
-                self.logger.log('eval_total_time', self.timer.total_time(),
-                                self.global_frame)
-                self.eval()
+            # if eval_every_step(self.global_step):
+            #     self.logger.log('eval_total_time', self.timer.total_time(),
+            #                     self.global_frame)
+            #     self.eval()
 
             meta = self.agent.update_meta(meta, self.global_step, time_step)
             # sample action
@@ -205,6 +205,13 @@ class Workspace:
                                         meta,
                                         self.global_step,
                                         eval_mode=False)
+
+            # DEBUG
+            if self.global_step % 100 == 0:
+                print(f'step: {self.global_step}')
+                print(f'obs: {time_step.observation.mean()}')
+                print(f'action: {action}')
+                self.train_env._env._env._env._env._env._env._env.render()
 
             # try to update the agent
             if not seed_until_step(self.global_step):
